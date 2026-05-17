@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase, type Rsvp } from "@/lib/supabase";
-import Activities from "@/app/components/Activities";
 import Comments from "@/app/components/Comments";
 
 type PublicEvent = {
@@ -54,9 +53,6 @@ export default function EventPage() {
   const [companionNames, setCompanionNames] = useState("");
   const [attendance, setAttendance] = useState<AttendanceStatus>("going");
   const [avatar, setAvatar] = useState("🐻");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [myRsvpId, setMyRsvpId] = useState<number | null>(null);
   const [status, setStatus] = useState<RsvpStatus>("idle");
   const [loginError, setLoginError] = useState("");
@@ -128,27 +124,6 @@ export default function EventPage() {
     }
   }, [myRsvpId, rsvps]);
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 3 * 1024 * 1024) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  }
-
-  async function uploadPhoto(rsvpId: number): Promise<string | null> {
-    if (!photoFile) return null;
-    const ext = photoFile.name.split(".").pop();
-    const ts = Date.now();
-    const path = `${eventId}/guest_${rsvpId}_${ts}.${ext}`;
-    const { error } = await supabase.storage
-      .from("event-images")
-      .upload(path, photoFile, { upsert: true });
-    if (error) return null;
-    const { data } = supabase.storage.from("event-images").getPublicUrl(path);
-    return data.publicUrl;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!guestName.trim() || !guestPhone.trim()) return;
@@ -160,17 +135,12 @@ export default function EventPage() {
 
     try {
       if (myRsvpId) {
-        let photoUrl: string | null = null;
-        if (photoFile) {
-          photoUrl = await uploadPhoto(myRsvpId);
-        }
         const updateData: Record<string, unknown> = {
           is_coming: isComing,
           avatar,
           plus_one_count: plusOneCount,
           companion_names: companionNames.trim() || null,
         };
-        if (photoUrl) updateData.photo_url = photoUrl;
         const { error } = await supabase
           .from("rsvps")
           .update(updateData)
@@ -194,10 +164,6 @@ export default function EventPage() {
             plus_one_count: plusOneCount,
             companion_names: companionNames.trim() || null,
           };
-          if (photoFile) {
-            const photoUrl = await uploadPhoto(existing.id);
-            if (photoUrl) updateData.photo_url = photoUrl;
-          }
           await supabase.from("rsvps").update(updateData).eq("id", existing.id);
         } else {
           const { data, error } = await supabase
@@ -217,12 +183,6 @@ export default function EventPage() {
           if (data) {
             setMyRsvpId(data.id);
             localStorage.setItem(`invito_rsvp_id_${eventId}`, String(data.id));
-            if (photoFile) {
-              const photoUrl = await uploadPhoto(data.id);
-              if (photoUrl) {
-                await supabase.from("rsvps").update({ photo_url: photoUrl }).eq("id", data.id);
-              }
-            }
           }
         }
       }
@@ -478,38 +438,6 @@ export default function EventPage() {
                 </div>
               </div>
 
-              {/* Photo Upload */}
-              <div className="mb-4">
-                <p className="text-xs font-bold tracking-wider text-muted uppercase mb-2">
-                  내 사진 <span className="font-normal text-muted-light">(선택)</span>
-                </p>
-                <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => photoInputRef.current?.click()}
-                    className="w-14 h-14 rounded-full border-2 border-dashed border-card-border bg-card flex items-center justify-center cursor-pointer hover:border-accent/50 transition-all overflow-hidden"
-                  >
-                    {photoPreview ? (
-                      <img src={photoPreview} alt="me" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-muted-light text-lg">+</span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs text-foreground font-medium">
-                      {photoPreview ? "사진 선택됨" : "얼굴이 잘 보이는 사진"}
-                    </p>
-                    <p className="text-[10px] text-muted">동그랗게 크롭됩니다 · 3MB 이하</p>
-                  </div>
-                </div>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-              </div>
-
               {/* Attendance Toggle — 3 options */}
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <button
@@ -562,11 +490,6 @@ export default function EventPage() {
               </button>
             </form>
           )}
-        </div>
-
-        {/* Activities */}
-        <div className="mb-6">
-          <Activities eventId={eventId} guestName={guestName} />
         </div>
 
         {/* Comments */}

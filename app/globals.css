@@ -2,10 +2,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #EFEFD0;
+  /* 페이지 배경: 연두빼고 살짝 따뜻한 페이퍼톤 (바꾸려면 이 줄만 조정) */
+  --background: #ede9e4;
   --foreground: #1a1a1a;
   --card: #ffffff;
-  --card-border: #e8e4d0;
+  --card-border: #e0dcd6;
   --accent: #FF6B35;
   --accent-glow: rgba(255, 107, 53, 0.25);
   --accent-secondary: #F7C59F;

@@ -47,8 +47,7 @@ export default function CreatePage() {
     host_key: "",
     payment_toss_url: "",
     payment_details: "",
-    punctuality_note:
-      "프로그램이 정해진 흐름대로 진행돼요. 늦으면 놓치는 순간이 생길 수 있으니 시작 시간에 맞춰 와주시면 정말 고마워요 🙏",
+    punctuality_note: "",
   });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -86,11 +85,12 @@ export default function CreatePage() {
     setError("");
   }
 
-  function applyLocalPartyPresets() {
+  /** public/sample-party/ 에 넣은 데모용 커버·배경 (행사마다 직접 올려도 됨) */
+  function applySampleMedia() {
     setImageFile(null);
-    setImagePreview("/bday-hyewon/main.png");
+    setImagePreview("/sample-party/main.png");
     setBgImageFile(null);
-    setBgImagePreview("/bday-hyewon/dive.png");
+    setBgImagePreview("/sample-party/dive.png");
     setError("");
   }
 
@@ -142,24 +142,42 @@ export default function CreatePage() {
       ? `${form.location}||${form.location_url}`
       : form.location || null;
 
-    const { data, error: dbError } = await supabase
+    const baseRow = {
+      title: form.title,
+      date: dateDisplay,
+      location: locationFull,
+      description: form.description || null,
+      host_name: form.host_name || null,
+      host_phone: form.host_phone.replace(/-/g, ""),
+      host_key: form.host_key,
+    };
+    const extendedRow = {
+      ...baseRow,
+      payment_toss_url: form.payment_toss_url.trim() || null,
+      payment_details: form.payment_details.trim() || null,
+      punctuality_note: form.punctuality_note.trim() || null,
+    };
+
+    let { data, error: dbError } = await supabase
       .from("events")
-      .insert({
-        title: form.title,
-        date: dateDisplay,
-        location: locationFull,
-        description: form.description || null,
-        host_name: form.host_name || null,
-        host_phone: form.host_phone.replace(/-/g, ""),
-        host_key: form.host_key,
-        payment_toss_url: form.payment_toss_url.trim() || null,
-        payment_details: form.payment_details.trim() || null,
-        punctuality_note: form.punctuality_note.trim() || null,
-      })
+      .insert(extendedRow)
       .select("id")
       .single();
 
-    if (dbError || !data) {
+    if (dbError) {
+      const retry = await supabase.from("events").insert(baseRow).select("id").single();
+      if (retry.error) {
+        setError(
+          `이벤트 생성 실패: ${retry.error.message}\n(Supabase의 events 테이블·RLS 정책을 확인해 주세요.)`
+        );
+        setLoading(false);
+        return;
+      }
+      data = retry.data;
+      dbError = null;
+    }
+
+    if (!data) {
       setError("이벤트 생성 중 오류가 발생했습니다. 다시 시도해주세요.");
       setLoading(false);
       return;
@@ -170,14 +188,14 @@ export default function CreatePage() {
     if (imageFile) {
       const imageUrl = await uploadImage(data.id);
       if (imageUrl) eventPatch.image_url = imageUrl;
-    } else if (imagePreview?.startsWith("/bday-hyewon/")) {
+    } else if (imagePreview?.startsWith("/sample-party/")) {
       eventPatch.image_url = imagePreview;
     }
 
     if (bgImageFile) {
       const bgUrl = await uploadBackgroundImage(data.id);
       if (bgUrl) eventPatch.background_image_url = bgUrl;
-    } else if (bgImagePreview?.startsWith("/bday-hyewon/")) {
+    } else if (bgImagePreview?.startsWith("/sample-party/")) {
       eventPatch.background_image_url = bgImagePreview;
     }
 
@@ -240,10 +258,10 @@ export default function CreatePage() {
             />
             <button
               type="button"
-              onClick={applyLocalPartyPresets}
+              onClick={applySampleMedia}
               className="mt-2 text-xs font-semibold text-brand-blue hover:underline underline-offset-2"
             >
-              샘플 메인·배경 이미지 적용 (태권도 / 다이브)
+              샘플 커버·배경 적용
             </button>
           </div>
 
@@ -399,6 +417,7 @@ export default function CreatePage() {
                 value={form.punctuality_note}
                 onChange={handleChange}
                 rows={3}
+                placeholder="예: 프로그램이 정해진 흐름대로 진행돼요. 시작 시간에 맞춰 와주시면 고마워요."
                 className="w-full bg-input-bg border border-input-border rounded-xl px-4 py-3 text-sm font-medium placeholder:text-muted-light focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all resize-y"
               />
             </div>
@@ -463,7 +482,7 @@ export default function CreatePage() {
           </div>
 
           {error && (
-            <div className="bg-error/10 border border-error/30 text-error text-sm px-4 py-3 rounded-xl">
+            <div className="bg-error/10 border border-error/30 text-error text-sm px-4 py-3 rounded-xl whitespace-pre-wrap">
               {error}
             </div>
           )}
