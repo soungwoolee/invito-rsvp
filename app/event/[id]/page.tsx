@@ -40,15 +40,39 @@ function parseLocation(loc: string | null): { name: string; url: string | null }
   return { name: loc, url: null };
 }
 
+function SpeakerOnIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
+function SpeakerOffIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="m22 9-6 6" />
+      <path d="m16 9 6 6" />
+    </svg>
+  );
+}
+
 /**
- * 이벤트 `audio_url` 또는 `public/invite-bgm/music.mp3`.
- * 고정 플로팅 버튼만 — 카드/안내 문구 없음.
+ * 상단 배치 · 스피커 ON(재생 중) / OFF(정지) 아이콘.
+ * 음원이 없어도 줄은 보이고 비활성.
  */
 function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
-  const [dead, setDead] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const src = (audioUrl && audioUrl.trim()) || "/invite-bgm/music.mp3";
+
+  useEffect(() => {
+    setUnavailable(false);
+  }, [src]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -64,43 +88,50 @@ function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
   }, [src]);
 
   const toggle = () => {
+    if (unavailable) return;
     const el = audioRef.current;
     if (!el) return;
     if (el.paused) void el.play().catch(() => {});
     else el.pause();
   };
 
-  if (dead) return null;
-
   return (
-    <>
+    <div
+      className={`flex items-center gap-2 rounded-full border border-card-border bg-card/95 py-1 pl-3 pr-1 shadow-md backdrop-blur-md ${unavailable ? "opacity-80" : ""}`}
+      title={unavailable ? "재생할 음원 파일을 불러올 수 없어요" : undefined}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted whitespace-nowrap">
+        배경음{unavailable ? <span className="font-medium normal-case text-muted-light"> 없음</span> : null}
+      </span>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={unavailable}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
+          unavailable
+            ? "cursor-not-allowed text-muted-light/50"
+            : playing
+              ? "bg-brand-blue/15 text-brand-blue active:scale-95"
+              : "bg-muted/10 text-muted hover:bg-muted/20 active:scale-95"
+        }`}
+        aria-label={unavailable ? "배경음 없음" : playing ? "배경음 끄기" : "배경음 켜기"}
+      >
+        {playing && !unavailable ? (
+          <SpeakerOnIcon className="h-5 w-5" />
+        ) : (
+          <SpeakerOffIcon className="h-5 w-5" />
+        )}
+      </button>
       <audio
         ref={audioRef}
         src={src}
         loop
         preload="metadata"
         playsInline
-        className="sr-only pointer-events-none fixed h-px w-px overflow-hidden opacity-0"
-        onError={() => setDead(true)}
+        className="hidden"
+        onError={() => setUnavailable(true)}
       />
-      <button
-        type="button"
-        onClick={toggle}
-        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-card-border/90 bg-card/90 text-brand-blue shadow-lg backdrop-blur-md transition hover:scale-105 active:scale-95"
-        aria-label={playing ? "배경음 멈추기" : "배경음 재생"}
-      >
-        {playing ? (
-          <span className="flex gap-0.5" aria-hidden>
-            <span className="h-3.5 w-1 rounded-sm bg-current" />
-            <span className="h-3.5 w-1 rounded-sm bg-current" />
-          </span>
-        ) : (
-          <span className="ml-0.5 text-[15px] leading-none font-bold" aria-hidden>
-            ▶
-          </span>
-        )}
-      </button>
-    </>
+    </div>
   );
 }
 
@@ -311,9 +342,10 @@ export default function EventPage() {
 
       <div className="px-5 py-10 relative z-0">
         <div className="max-w-md mx-auto animate-fade-in">
-        {/* Brand */}
-        <div className="mb-6">
+        {/* Brand + 배경음 */}
+        <div className="mb-6 flex items-center justify-between gap-3">
           <span className="text-sm font-black tracking-widest gradient-text">INVITO</span>
+          <InviteBgmPlayer audioUrl={event.audio_url} />
         </div>
 
         {/* Event Image */}
@@ -363,8 +395,6 @@ export default function EventPage() {
             )}
           </div>
         </div>
-
-        <InviteBgmPlayer audioUrl={event.audio_url} />
 
         {event.punctuality_note?.trim() && (
           <div className="glass rounded-2xl p-5 mb-6 border border-brand-blue/15">
