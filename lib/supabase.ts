@@ -20,6 +20,7 @@ export type Event = {
   payment_toss_url: string | null
   payment_details: string | null
   punctuality_note: string | null
+  audio_url: string | null
 }
 
 export type Rsvp = {

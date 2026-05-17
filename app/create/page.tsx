@@ -29,10 +29,12 @@ export default function CreatePage() {
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [bgImageFile, setBgImageFile] = useState<File | null>(null);
   const [bgImagePreview, setBgImagePreview] = useState<string | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -85,6 +87,21 @@ export default function CreatePage() {
     setError("");
   }
 
+  function handleAudioChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".mp3")) {
+      setError("음악은 .mp3 파일만 올려 주세요.");
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setError("음악 파일은 12MB 이하만 가능합니다.");
+      return;
+    }
+    setAudioFile(file);
+    setError("");
+  }
+
   /** public/sample-party/ 에 넣은 데모용 커버·배경 (행사마다 직접 올려도 됨) */
   function applySampleMedia() {
     setImageFile(null);
@@ -120,6 +137,24 @@ export default function CreatePage() {
     if (uploadErr) {
       console.error("Storage upload error:", uploadErr);
       setError(`배경 이미지 업로드 실패: ${uploadErr.message}`);
+      return null;
+    }
+    const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function uploadAudio(eventId: string): Promise<string | null> {
+    if (!audioFile) return null;
+    const path = `${eventId}/bgm_${Date.now()}.mp3`;
+    const { error: uploadErr } = await supabase.storage
+      .from("event-images")
+      .upload(path, audioFile, {
+        upsert: true,
+        contentType: "audio/mpeg",
+      });
+    if (uploadErr) {
+      console.error("Audio upload error:", uploadErr);
+      setError(`음악 업로드 실패: ${uploadErr.message}`);
       return null;
     }
     const { data } = supabase.storage.from("event-images").getPublicUrl(path);
@@ -197,6 +232,11 @@ export default function CreatePage() {
       if (bgUrl) eventPatch.background_image_url = bgUrl;
     } else if (bgImagePreview?.startsWith("/sample-party/")) {
       eventPatch.background_image_url = bgImagePreview;
+    }
+
+    if (audioFile) {
+      const audioUrl = await uploadAudio(data.id);
+      if (audioUrl) eventPatch.audio_url = audioUrl;
     }
 
     if (Object.keys(eventPatch).length > 0) {
@@ -290,6 +330,31 @@ export default function CreatePage() {
               onChange={handleBgImageChange}
               className="hidden"
             />
+          </div>
+
+          {/* 배경음 (선택) */}
+          <div>
+            <label className="block text-xs font-bold tracking-wider text-muted uppercase mb-2">
+              파티 음악 <span className="text-muted-light font-normal">(선택 · MP3)</span>
+            </label>
+            <div
+              onClick={() => audioInputRef.current?.click()}
+              className="w-full border border-dashed border-card-border rounded-xl px-4 py-3 cursor-pointer hover:border-accent/50 bg-card/80 text-sm text-muted"
+            >
+              {audioFile ? (
+                <span className="font-medium text-foreground">{audioFile.name}</span>
+              ) : (
+                "탭해서 MP3 선택"
+              )}
+            </div>
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept=".mp3,audio/mpeg"
+              onChange={handleAudioChange}
+              className="hidden"
+            />
+            <p className="text-[10px] text-muted-light mt-1">12MB 이하 · 게스트 페이지에서 재생</p>
           </div>
 
           {/* 이벤트 이름 */}

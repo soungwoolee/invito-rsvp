@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { supabase, type Rsvp } from "@/lib/supabase";
 import Comments from "@/app/components/Comments";
@@ -17,6 +17,7 @@ type PublicEvent = {
   payment_toss_url: string | null;
   payment_details: string | null;
   punctuality_note: string | null;
+  audio_url: string | null;
 };
 
 type RsvpStatus = "idle" | "submitting" | "success" | "error";
@@ -37,6 +38,61 @@ function parseLocation(loc: string | null): { name: string; url: string | null }
     return { name, url };
   }
   return { name: loc, url: null };
+}
+
+/**
+ * 이벤트에 `audio_url` 있으면 그걸 쓰고, 없으면 `public/invite-bgm/music.mp3` 시도.
+ * 자동재생은 불가 → 큰 버튼 한 번이 곧 "재생 제스처"로 이어짐.
+ */
+function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const src = (audioUrl && audioUrl.trim()) || "/invite-bgm/music.mp3";
+
+  if (loadFailed) {
+    return (
+      <div className="glass rounded-2xl p-4 mb-6 border border-card-border/80">
+        <p className="text-xs font-bold tracking-wider text-muted uppercase mb-2">배경음</p>
+        <p className="text-sm text-muted leading-relaxed">
+          아직 들을 수 있는 음악이 없어요. 호스트가{" "}
+          <span className="font-semibold text-foreground">새 이벤트 만들기</span> 화면에서 MP3를
+          올렸는지, 또는 사이트에 <span className="font-mono text-[11px]">invite-bgm/music.mp3</span>{" "}
+          파일이 있는지 확인해 주세요.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass rounded-2xl p-4 mb-6 border border-card-border/80">
+      <p className="text-xs font-bold tracking-wider text-muted uppercase mb-2">배경음</p>
+      {!hasStarted && (
+        <button
+          type="button"
+          className="w-full btn-primary font-bold text-sm py-3.5 rounded-xl mb-2 active:scale-[0.98] transition-transform"
+          onClick={() => {
+            void audioRef.current?.play().then(() => setHasStarted(true)).catch(() => {});
+          }}
+        >
+          음악 켜기
+        </button>
+      )}
+      <audio
+        ref={audioRef}
+        src={src}
+        controls
+        preload="metadata"
+        loop
+        className="w-full h-10"
+        onPlay={() => setHasStarted(true)}
+        onError={() => setLoadFailed(true)}
+      />
+      <p className="text-[10px] text-muted-light mt-2 leading-relaxed">
+        스크롤만으로는 재생이 안 될 수 있어요. 위 버튼 또는 재생 바를 눌러 주세요.
+      </p>
+    </div>
+  );
 }
 
 export default function EventPage() {
@@ -71,7 +127,7 @@ export default function EventPage() {
       const { data } = await supabase
         .from("events")
         .select(
-          "id, title, date, location, description, host_name, image_url, background_image_url, payment_toss_url, payment_details, punctuality_note"
+          "id, title, date, location, description, host_name, image_url, background_image_url, payment_toss_url, payment_details, punctuality_note, audio_url"
         )
         .eq("id", eventId)
         .single();
@@ -240,7 +296,7 @@ export default function EventPage() {
             style={{ backgroundImage: `url(${event.background_image_url})` }}
             aria-hidden
           />
-          <div className="fixed inset-0 -z-10 bg-background/78 backdrop-blur-[1px]" aria-hidden />
+          <div className="fixed inset-0 -z-10 bg-background/20" aria-hidden />
         </>
       )}
 
@@ -298,6 +354,8 @@ export default function EventPage() {
             )}
           </div>
         </div>
+
+        <InviteBgmPlayer audioUrl={event.audio_url} />
 
         {event.punctuality_note?.trim() && (
           <div className="glass rounded-2xl p-5 mb-6 border border-brand-blue/15">

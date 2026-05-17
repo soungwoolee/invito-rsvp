@@ -11,3 +11,6 @@ alter table events add column if not exists punctuality_note text;
 -- 동반 인원·이름 (RSVP)
 alter table rsvps add column if not exists plus_one_count int default 0;
 alter table rsvps add column if not exists companion_names text;
+
+-- 이벤트별 배경음 (Storage public URL)
+alter table events add column if not exists audio_url text;
