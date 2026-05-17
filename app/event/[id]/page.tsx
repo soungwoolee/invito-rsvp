@@ -41,57 +41,66 @@ function parseLocation(loc: string | null): { name: string; url: string | null }
 }
 
 /**
- * 이벤트에 `audio_url` 있으면 그걸 쓰고, 없으면 `public/invite-bgm/music.mp3` 시도.
- * 자동재생은 불가 → 큰 버튼 한 번이 곧 "재생 제스처"로 이어짐.
+ * 이벤트 `audio_url` 또는 `public/invite-bgm/music.mp3`.
+ * 고정 플로팅 버튼만 — 카드/안내 문구 없음.
  */
 function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [dead, setDead] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const src = (audioUrl && audioUrl.trim()) || "/invite-bgm/music.mp3";
 
-  if (loadFailed) {
-    return (
-      <div className="glass rounded-2xl p-4 mb-6 border border-card-border/80">
-        <p className="text-xs font-bold tracking-wider text-muted uppercase mb-2">배경음</p>
-        <p className="text-sm text-muted leading-relaxed">
-          아직 들을 수 있는 음악이 없어요. 호스트가{" "}
-          <span className="font-semibold text-foreground">새 이벤트 만들기</span> 화면에서 MP3를
-          올렸는지, 또는 사이트에 <span className="font-mono text-[11px]">invite-bgm/music.mp3</span>{" "}
-          파일이 있는지 확인해 주세요.
-        </p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    el.addEventListener("play", onPlay);
+    el.addEventListener("pause", onPause);
+    return () => {
+      el.removeEventListener("play", onPlay);
+      el.removeEventListener("pause", onPause);
+    };
+  }, [src]);
+
+  const toggle = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) void el.play().catch(() => {});
+    else el.pause();
+  };
+
+  if (dead) return null;
 
   return (
-    <div className="glass rounded-2xl p-4 mb-6 border border-card-border/80">
-      <p className="text-xs font-bold tracking-wider text-muted uppercase mb-2">배경음</p>
-      {!hasStarted && (
-        <button
-          type="button"
-          className="w-full btn-primary font-bold text-sm py-3.5 rounded-xl mb-2 active:scale-[0.98] transition-transform"
-          onClick={() => {
-            void audioRef.current?.play().then(() => setHasStarted(true)).catch(() => {});
-          }}
-        >
-          음악 켜기
-        </button>
-      )}
+    <>
       <audio
         ref={audioRef}
         src={src}
-        controls
-        preload="metadata"
         loop
-        className="w-full h-10"
-        onPlay={() => setHasStarted(true)}
-        onError={() => setLoadFailed(true)}
+        preload="metadata"
+        playsInline
+        className="sr-only pointer-events-none fixed h-px w-px overflow-hidden opacity-0"
+        onError={() => setDead(true)}
       />
-      <p className="text-[10px] text-muted-light mt-2 leading-relaxed">
-        스크롤만으로는 재생이 안 될 수 있어요. 위 버튼 또는 재생 바를 눌러 주세요.
-      </p>
-    </div>
+      <button
+        type="button"
+        onClick={toggle}
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-card-border/90 bg-card/90 text-brand-blue shadow-lg backdrop-blur-md transition hover:scale-105 active:scale-95"
+        aria-label={playing ? "배경음 멈추기" : "배경음 재생"}
+      >
+        {playing ? (
+          <span className="flex gap-0.5" aria-hidden>
+            <span className="h-3.5 w-1 rounded-sm bg-current" />
+            <span className="h-3.5 w-1 rounded-sm bg-current" />
+          </span>
+        ) : (
+          <span className="ml-0.5 text-[15px] leading-none font-bold" aria-hidden>
+            ▶
+          </span>
+        )}
+      </button>
+    </>
   );
 }
 
