@@ -1,0 +1,123 @@
+# invito-rsvp 배포 가이드
+작성: 2026-05-03 19:16
+
+---
+
+## 1. Vercel 배포
+
+### 터미널에서 (개인컴 or 핫스팟 연결 후)
+
+```powershell
+cd "invito-rsvp 폴더 경로"
+npm i -g vercel
+vercel
+```
+
+> 회사 네트워크에서 SSL 에러 나면:
+> - 폰 핫스팟으로 연결 후 다시 시도, 또는
+> - `$env:NODE_TLS_REJECT_UNAUTHORIZED="0"` 실행 후 다시 시도
+
+### vercel 실행 시 물어보는 것들
+1. 로그인 → 브라우저 뜨면 GitHub/이메일로 로그인
+2. Set up and deploy? → **Y**
+3. Which scope? → 본인 계정 (엔터)
+4. Link to existing project? → **N**
+5. Project name? → 엔터 (기본값)
+6. Directory? → 엔터
+7. Override settings? → **N**
+
+→ 빌드 완료되면 **배포 URL** 나옴 (ex. `invito-rsvp-xxx.vercel.app`)
+
+---
+
+## 2. 환경변수 설정 (필수)
+
+배포 후 사이트 열면 에러남 → 환경변수 넣어야 함
+
+1. https://vercel.com/dashboard 접속
+2. 프로젝트(`invito-rsvp`) 클릭
+3. **Settings** → **Environment Variables**
+4. 두 개 추가:
+
+| Key | Value |
+|-----|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://lmvzlntffykrlbqtikql.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_IWf2MA9Rv4bAE8G3-sBdDQ_G07z4qH5` |
+
+5. **Deployments** 탭 → 최신 배포 옆 **⋮** 메뉴 → **Redeploy** 클릭
+6. 완료 → 배포 URL에서 정상 작동 확인
+
+---
+
+## 3. 커스텀 도메인 (선택)
+
+Vercel 대시보드 → Settings → Domains → 원하는 도메인 추가 가능
+(예: `invite.invito.kr` 같은 거)
+
+---
+
+## 4. 배포 후 코드 수정했을 때
+
+수정 후 터미널에서:
+
+```powershell
+cd "invito-rsvp 폴더"
+vercel --prod
+```
+
+→ 자동으로 최신 코드로 재배포됨
+
+---
+
+## 참고: Supabase SQL (이미 실행한 것 목록)
+
+아래는 오늘 세션에서 실행한 SQL들. 다시 실행할 필요 없음.
+
+```sql
+-- 테이블 생성
+create table activities (...)
+create table activity_likes (...)
+create table comments (...)
+create table guests (...)
+
+-- 컬럼 추가
+alter table rsvps add column avatar text;
+alter table rsvps add column photo_url text;
+alter table rsvps add column phone text;
+alter table rsvps alter column is_coming drop not null;
+alter table comments add column parent_id bigint references comments(id) on delete cascade;
+alter table events add column description text;
+
+-- RLS 정책 (events, rsvps, activities, activity_likes, comments, guests, storage)
+-- 전부 allow all로 설정됨
+
+-- Storage 정책
+create policy "event_images_read" on storage.objects for select using (bucket_id = 'event-images');
+create policy "event_images_insert" on storage.objects for insert with check (bucket_id = 'event-images');
+create policy "event_images_update" on storage.objects for update using (bucket_id = 'event-images');
+create policy "event_images_delete" on storage.objects for delete using (bucket_id = 'event-images');
+```
+
+---
+
+## 5. 오늘 구현한 기능 요약
+
+| 기능 | 상태 |
+|------|------|
+| 밝은 베이지 테마 (Coolors 팔레트) | ✅ |
+| RSVP (이름+번호, 참석/미정/불참) | ✅ |
+| 캐릭터 이모지 선택 | ✅ |
+| 사진 업로드 (프사) | ✅ |
+| 활동 제안 + 이모지 리액션 | ✅ |
+| 댓글 (수정/삭제/대댓글/프사) | ✅ |
+| 참석자 목록 (8명 전 blur) | ✅ |
+| 호스트 댓글/활동 참여 | ✅ |
+| 게스트 관리 + 리마인더 UI | ✅ (SMS API 미연동) |
+| 이벤트 이미지 업로드 | ✅ |
+| 지도 링크 (네이버/카카오맵) | ✅ |
+| 시간 메모 | ✅ |
+| 한줄 소개 | ✅ |
+| 파티룸 미니홈피 | ❌ 제거 (추후 재시도) |
+| 배경 테마 선택 | ❌ 제거 (미적용) |
+| 우주 얼굴 떠다니기 | 🔜 배포 후 추가 예정 |
+| SMS 리마인더 실제 발송 | 🔜 API 연동 필요 |
