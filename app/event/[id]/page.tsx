@@ -398,26 +398,6 @@ export default function EventPage() {
           </div>
         )}
 
-        {hasPaymentGuide && (
-          <div className="glass rounded-2xl p-5 mb-6 border border-card-border">
-            <p className="text-xs font-bold tracking-wider text-muted uppercase mb-3">참가비 · 입금</p>
-            {event.payment_details?.trim() && (
-              <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed mb-4">{event.payment_details}</p>
-            )}
-            {event.payment_toss_url?.trim() && (
-              <a
-                href={event.payment_toss_url.trim()}
-                className="block w-full text-center btn-primary font-bold text-base py-3.5 rounded-xl mb-3"
-              >
-                토스로 송금하기
-              </a>
-            )}
-            <p className="text-[11px] text-muted leading-relaxed">
-              토스 앱이 없으면 위 문구의 카카오페이 또는 계좌로 보내주시면 돼요.
-            </p>
-          </div>
-        )}
-
         {/* RSVP Form */}
         <div className="glass rounded-2xl p-5 mb-6">
           {status === "success" ? (
@@ -583,6 +563,26 @@ export default function EventPage() {
             </form>
           )}
         </div>
+
+        {hasPaymentGuide && (
+          <div className="glass rounded-2xl p-5 mb-6 border border-card-border">
+            <p className="text-xs font-bold tracking-wider text-muted uppercase mb-3">참가비 · 입금</p>
+            {event.payment_details?.trim() && (
+              <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed mb-4">{event.payment_details}</p>
+            )}
+            {event.payment_toss_url?.trim() && (
+              <a
+                href={event.payment_toss_url.trim()}
+                className="block w-full text-center btn-primary font-bold text-base py-3.5 rounded-xl mb-3"
+              >
+                토스로 송금하기
+              </a>
+            )}
+            <p className="text-[11px] text-muted leading-relaxed">
+              토스 앱이 없으면 위 문구의 카카오페이 또는 계좌로 보내주시면 돼요.
+            </p>
+          </div>
+        )}
 
         {/* Comments */}
         <div className="mb-6">
