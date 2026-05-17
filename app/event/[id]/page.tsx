@@ -61,8 +61,7 @@ function SpeakerOffIcon({ className }: { className?: string }) {
 }
 
 /**
- * 상단 배치 · 스피커 ON(재생 중) / OFF(정지) 아이콘.
- * 음원이 없어도 줄은 보이고 비활성.
+ * 상단 · 스피커 아이콘만. `audio`는 display:none 금지(Safari/인앱 재생 이슈) — 예전처럼 sr-only 고정 1px.
  */
 function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
   const [unavailable, setUnavailable] = useState(false);
@@ -96,42 +95,38 @@ function InviteBgmPlayer({ audioUrl }: { audioUrl: string | null }) {
   };
 
   return (
-    <div
-      className={`flex items-center gap-2 rounded-full border border-card-border bg-card/95 py-1 pl-3 pr-1 shadow-md backdrop-blur-md ${unavailable ? "opacity-80" : ""}`}
-      title={unavailable ? "재생할 음원 파일을 불러올 수 없어요" : undefined}
-    >
-      <span className="text-[10px] font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-        배경음{unavailable ? <span className="font-medium normal-case text-muted-light"> 없음</span> : null}
-      </span>
+    <>
+      <audio
+        ref={audioRef}
+        key={src}
+        src={src}
+        loop
+        preload="auto"
+        playsInline
+        className="sr-only pointer-events-none fixed left-0 top-0 -z-10 h-px w-px overflow-hidden opacity-0"
+        onError={() => setUnavailable(true)}
+      />
       <button
         type="button"
         onClick={toggle}
         disabled={unavailable}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
+        title={unavailable ? "재생할 음원을 불러올 수 없어요" : undefined}
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-card-border/90 bg-card/90 shadow-md backdrop-blur-md transition hover:scale-105 active:scale-95 ${
           unavailable
-            ? "cursor-not-allowed text-muted-light/50"
+            ? "cursor-not-allowed text-muted-light/45"
             : playing
-              ? "bg-brand-blue/15 text-brand-blue active:scale-95"
-              : "bg-muted/10 text-muted hover:bg-muted/20 active:scale-95"
+              ? "text-brand-blue"
+              : "text-muted hover:text-foreground"
         }`}
-        aria-label={unavailable ? "배경음 없음" : playing ? "배경음 끄기" : "배경음 켜기"}
+        aria-label={unavailable ? "음원 없음" : playing ? "소리 끄기" : "소리 켜기"}
       >
         {playing && !unavailable ? (
-          <SpeakerOnIcon className="h-5 w-5" />
+          <SpeakerOnIcon className="h-6 w-6" />
         ) : (
-          <SpeakerOffIcon className="h-5 w-5" />
+          <SpeakerOffIcon className="h-6 w-6" />
         )}
       </button>
-      <audio
-        ref={audioRef}
-        src={src}
-        loop
-        preload="metadata"
-        playsInline
-        className="hidden"
-        onError={() => setUnavailable(true)}
-      />
-    </div>
+    </>
   );
 }
 
